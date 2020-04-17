@@ -1,3 +1,15 @@
+---
+layout:     post
+title:      SpingMvc源码
+subtitle:   SpringMVC执行流程
+date:       2020-4-19
+author:     pigsun
+header-img: img/post-bg-spring.jpeg
+catalog: true
+tags:
+    - Spring
+    - SpringMVC
+---
 # SpingMvc源码阅读
 ## 首先我们先了解一些专业名词
 * DispatcherServlet springMVc的核心处理类 他继承了HttpServlet 所有请求都会进入这个类，然后通过不同的hanler处理请求。
