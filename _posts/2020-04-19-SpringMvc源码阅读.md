@@ -281,7 +281,7 @@ public interface HandlerMethodArgumentResolver {
 }
 ```
 
-SringMVc内置了很多转换器![微信图片_20200414115951](C:\Users\36928\Desktop\微信图片_20200414115951.png)
+SringMVc内置了很多转换器![](https://pic-go-pigsun.oss-cn-shanghai.aliyuncs.com/pigGo/微信图片_20200414115951.png)
 
 会根据不同的类型，使用不同的转换器进行参数填充，程序员也可以自己拓展，非常灵活。
 
@@ -353,7 +353,7 @@ private HandlerMethodReturnValueHandler selectHandler(@Nullable Object value, Me
 
 
 
-![image-20200414145046226](C:\Users\36928\AppData\Roaming\Typora\typora-user-images\image-20200414145046226.png)
+![](https://pic-go-pigsun.oss-cn-shanghai.aliyuncs.com/pigGo/image-20200414145046226.png)
 
 方式和上面一样，一个是判断是否支持类型，另外一个是具体操作
 
@@ -442,7 +442,7 @@ protected View resolveViewName(String viewName, @Nullable Map<String, Object> mo
 
 这里又是适配器设计模式，视图渲染器，
 
-![image-20200414155137660](C:\Users\36928\AppData\Roaming\Typora\typora-user-images\image-20200414155137660.png)
+![](https://pic-go-pigsun.oss-cn-shanghai.aliyuncs.com/pigGo/image-20200414155137660.png)
 
 这里只有1个视图渲染器，
 
