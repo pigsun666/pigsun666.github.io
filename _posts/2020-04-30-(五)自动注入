@@ -1,0 +1,171 @@
+---
+layout:     post
+title:      Spring源码阅读
+subtitle:   (五)自动注入
+date:       2020-4-30
+author:     pigsun
+header-img: img/post-bg-spring.jpeg
+catalog: true
+tags:
+    - Spring
+    - Spring源码
+---
+# 自动注入
+
+在没有学习`Spring`源码之前，我对`@Autowired`的理解都存在字面意思，以为是自动注入。我们先把问题挂在这里，`@Autowired`是不是自动注入？
+
+## Autowiring model 自动注入模型
+
+根据官网的介绍，依赖注入只有2种方式
+
+> DI exists in two major variants: [Constructor-based dependency injection](https://docs.spring.io/spring/docs/5.2.5.RELEASE/spring-framework-reference/core.html#beans-constructor-injection) and [Setter-based dependency injection](https://docs.spring.io/spring/docs/5.2.5.RELEASE/spring-framework-reference/core.html#beans-setter-injection).
+
+`Spring`自动注入提供了两种注入方式，一种是`setter`方式，一种是通过`constructor`的方式。
+
+
+
+| Mode          | Explanation                                                  |
+| :------------ | :----------------------------------------------------------- |
+| `no`          | (Default) No autowiring. Bean references must be defined by `ref` elements. Changing the default setting is not recommended for larger deployments, because specifying collaborators explicitly gives greater control and clarity. To some extent, it documents the structure of a system. |
+| `byName`      | Autowiring by property name. Spring looks for a bean with the same name as the property that needs to be autowired. For example, if a bean definition is set to autowire by name and it contains a `master` property (that is, it has a `setMaster(..)` method), Spring looks for a bean definition named `master` and uses it to set the property. |
+| `byType`      | Lets a property be autowired if exactly one bean of the property type exists in the container. If more than one exists, a fatal exception is thrown, which indicates that you may not use `byType` autowiring for that bean. If there are no matching beans, nothing happens (the property is not set). |
+| `constructor` | Analogous to `byType` but applies to constructor arguments. If there is not exactly one bean of the constructor argument type in the container, a fatal error is raised. |
+
+这个图是`Spring`官网提供的一张表格，意思上是Spring提供了4种自动注入模型
+
+* `no` 目前Spring默认的注入模型，也就是说Spring默认情况下是关闭自动注入的，必须要我们通过`Setter`方法或者构造方法完成依赖注入。（Spring默认关闭？那`@Autowired`并不是自动注入？还不是很确定！）
+
+* `constructor` 
+
+  当我们使用这种注入模型时，Spring会根据构造函数查找有没有对应参数名称的bean,有的话完成注入（跟前文的`byName`差不多），如果根据名称没找到，那么它会再根据类型进行查找，如果根据类型还是没找到，就会报错。
+
+* `byName` 这种方式，我们必须提供两个条件
+
+  * 提供`setter`方法
+  * 如果要注入的属性为xxx，那么`setter`方法名称必须是`setXxx`，命名必须规范.如果命名不规范导致spring没有找到我们需要的bean，spring并不会报错，只是不会完成注入。
+
+* `byType`  
+
+  * 也需要提供`setter`方法，这里笔者有看源码，set必须是4个字符以上，就是setA或者setB，并且必须有且只有一个参数，不能有两个参数。这是spring定下来的规范，使用者必须遵守这个规则。
+  * 如果通过类型找到了两个或两个以上属于这个类型的bean，那么spring会报错。
+  * 如果set方法有2个参数，就算这两个参数在spring中都能找到，spring也不会进行注入，也不会报错。
+  * 如果参数里面的类型找不到，也不会报错，也不会注入。
+
+  
+
+  如果是通过Xml方式配置的Spring，需要在<Beans>添加一个属性，default-autowire="byType"或者default-autowire="byName"，也可以在<bean>属性中添加autowire="byType",我们就不用Xml方式了，使用Java方式来配置自动注入。
+
+
+
+如果是通过Xml方式配置的Spring，需要在`<Beans>`添加一个属性，`default-autowire="byType"`或者`default-autowire="byName"`，也可以在`<bean>`属性中添加`autowire="byType"`,我们就不用Xml方式了，使用Java方式来配置自动注入。
+
+先编写测试类
+
+```java
+@Component
+public class A {
+   B b;
+
+   public void setB(B b) {
+      System.out.println(b);
+      this.b = b;
+   }
+
+}
+@Component
+public class B {
+	public B(){
+		System.out.println("B init");
+	}
+}
+```
+
+设置A的注入模型为自动注入byType.写一个类实现`BeanFactoryPostProcessor`
+
+```java
+@Component
+public class MyBeanFactoryPostProcessor implements BeanFactoryPostProcessor {
+   @Override
+   public void postProcessBeanFactory(ConfigurableListableBeanFactory beanFactory) throws BeansException {
+      GenericBeanDefinition bd = (GenericBeanDefinition  ) beanFactory.getBeanDefinition("a");
+      bd.setAutowireMode(AbstractBeanDefinition.AUTOWIRE_BY_Type);
+   }
+}
+```
+
+![](https://pic-go-pigsun.oss-cn-shanghai.aliyuncs.com/pigGo/20200425154305.png)
+
+上述代码中我们取出了a的BeanDefinition，设置了自动注入模型为ByName.
+
+```java
+//int AUTOWIRE_NO = 0;
+public static final int AUTOWIRE_NO = AutowireCapableBeanFactory.AUTOWIRE_NO;
+//int AUTOWIRE_BY_NAME = 1;
+public static final int AUTOWIRE_BY_NAME = AutowireCapableBeanFactory.AUTOWIRE_BY_NAME;
+//int AUTOWIRE_BY_TYPE = 2;
+public static final int AUTOWIRE_BY_TYPE = AutowireCapableBeanFactory.AUTOWIRE_BY_TYPE;
+//int AUTOWIRE_CONSTRUCTOR = 3;
+public static final int AUTOWIRE_CONSTRUCTOR = AutowireCapableBeanFactory.AUTOWIRE_CONSTRUCTOR;
+```
+
+我们再添加两个类 测试一下`@Autowired` 
+
+```java
+@Component
+public class C {
+   @Autowired
+   D d;
+
+   public void test(){
+      System.out.println(d);
+   }
+}
+@Component
+public class D {
+	public D(){
+		System.out.println("d int");
+	}
+}
+```
+
+```java
+public static void main(String[] args) {
+   AnnotationConfigApplicationContext ac
+         = new AnnotationConfigApplicationContext();
+   ac.register(AppConfig.class);
+   ac.refresh();
+   C c = (C) ac.getBean("c");
+   c.test();
+}
+```
+
+```java
+@Component
+public class MyBeanFactoryPostProcessor implements BeanFactoryPostProcessor {
+   @Override
+   public void postProcessBeanFactory(ConfigurableListableBeanFactory beanFactory) throws BeansException {
+      GenericBeanDefinition c = (GenericBeanDefinition  ) beanFactory.getBeanDefinition("c");
+      int autowireMode = c.getAutowireMode();
+      System.out.println("c的注入模型:"+autowireMode);
+      GenericBeanDefinition a = (GenericBeanDefinition  ) beanFactory.getBeanDefinition("a");
+      a.setAutowireMode(AbstractBeanDefinition.AUTOWIRE_BY_TYPE);
+      int autowireMode1 = a.getAutowireMode();
+      System.out.println("a的注入模型:"+autowireMode1);
+   }
+}
+```
+
+![](https://pic-go-pigsun.oss-cn-shanghai.aliyuncs.com/pigGo/20200425165215.png)
+
+`@Autowired`并不是自动注入，也不是`byType`，它只是`setter`注入方式的一种变种注入方式，被`@Autowired`标注的属性，会被spring的后置处理器处理，最终利用JAVA的反射知识`field.set(value,targetObject)`
+
+如果这还不能说服你，那么我们直接定位到Spring属性填充的位置，`org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory#populateBean`
+
+![](https://pic-go-pigsun.oss-cn-shanghai.aliyuncs.com/pigGo/20200425165822.png)
+
+在Bean进行属性注入的时候，会取出自动注入模型，进行判断。如果不是自动注入模型，那么会走到下面，这里直接说结论，`@Autowired`会被`AutowiredAnnotationBeanPostProcessor`后置处理器处理，`@Resource`会被`CommonAnnotationBeanPostProcessor`后置处理器处理。最终通过反射的方式set进去。你可能会问，构造器注入呢？构造器注入不在属性注入的时候执行，它在最开始实例化bean 推断构造方法那里就会注入。推断构造方法比较复杂，后面会拿一整篇细说。
+
+## 总结
+
+Spring主要有2种注入方式 ，一种是通过构造方法注入 ，一种是通过`setter`方式注入。`@Autowired`是属于`setter`方式的变种注入方式, spring有4种自动注入模型，默认是不开启自动注入的。`@Autowired`是先根据类型去找，然后再通过名字去找，但是并不是`byType+byName`，因为不是自动注入
+
